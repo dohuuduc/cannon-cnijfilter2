@@ -10,7 +10,7 @@ To build and install backend(USB):
            --prefix
  
      Example:
-           ./autogen.sh --prefix=/usr --enable-progpath=/usr/local/bin
+           ./autogen.sh --prefix=/usr --enable-progpath=/usr/bin
            make
            make install
 

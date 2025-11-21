@@ -1,6 +1,6 @@
 /*
  *  CUPS add-on module for Canon Inkjet Printer.
- *  Copyright CANON INC. 2001-2015
+ *  Copyright CANON INC. 2001-2024
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -67,7 +67,7 @@ int read_line(FILE *fp, char *buf, int buf_size)
 #define	LINE_BUF_SIZE	1024
 
 
-PpdToOptKey *alloc_opt_key_table(char *ppd_name)
+PpdToOptKey *alloc_opt_key_table(char *ppd_name, char *ppd_key_name)
 {
 	FILE *fp = fopen(ppd_name, "r");
 	PpdToOptKey *p_key_table = NULL;
@@ -82,7 +82,7 @@ PpdToOptKey *alloc_opt_key_table(char *ppd_name)
 		{
 			if( line_buf[0] == '*' && line_buf[1] == '%' )
 			{
-				if( !strcmp(strtok(line_buf, " "), "*%CNPpdToOptKey") )
+				if( !strcmp(strtok(line_buf, " "), ppd_key_name) )
 					opt_num++;
 			}
 		}
@@ -97,7 +97,7 @@ PpdToOptKey *alloc_opt_key_table(char *ppd_name)
 			{
 				if( line_buf[0] == '*' && line_buf[1] == '%' )
 				{
-					if( !strcmp(strtok(line_buf, " "), "*%CNPpdToOptKey") )
+					if( !strcmp(strtok(line_buf, " "), ppd_key_name) )
 					{
 						char *ppd_key = strtok(NULL, " ");
 						char *opt_key= strtok(NULL, " ");

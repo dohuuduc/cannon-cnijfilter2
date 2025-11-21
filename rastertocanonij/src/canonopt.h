@@ -1,6 +1,6 @@
 /*
  *  CUPS add-on module for Canon Inkjet Printer.
- *  Copyright CANON INC. 2001-2015
+ *  Copyright CANON INC. 2001-2024
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -22,8 +22,19 @@
 
 typedef struct ppd_to_opt_key_s
 {
-	char *ppd_key;
-	char *opt_key;
+	union
+	{
+		/* data */
+		char *ppd_key;
+		char *fixed_key;
+	};
+
+	union
+	{
+		/* data */
+		char *opt_key;
+		char *fixed_value;
+	};
 } PpdToOptKey;
 
 typedef struct size_to_print_area_s
@@ -35,7 +46,7 @@ typedef struct size_to_print_area_s
 
 
 char *ppd_to_opt_key(PpdToOptKey *p_table, char *ppd_key);
-PpdToOptKey *alloc_opt_key_table(char *ppd_name);
+PpdToOptKey *alloc_opt_key_table(char *ppd_name, char *ppd_key_name);
 void free_opt_key_table(PpdToOptKey *p_opt_key_table);
 int size_to_print_area_table(SizeToPrintArea *p_table_top, char *size_key, long *w, long *h);
 SizeToPrintArea *alloc_size_to_print_area_table(char *ppd_name);

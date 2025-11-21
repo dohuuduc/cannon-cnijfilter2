@@ -1,6 +1,6 @@
 /*
  *  CUPS add-on module for Canon Inkjet Printer.
- *  Copyright CANON INC. 2001-2015
+ *  Copyright CANON INC. 2001-2024
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -61,6 +61,19 @@
 #define CNIJPWG_TEMP "/var/tmp/cnijpwgtmpXXXXXX"
 #define CNIJRAW_TEMP "/var/tmp/cnijrawtmpXXXXXX"
 #define DUPLEX_LONGSIDE "duplexnotumble"
+#define OPTION_TRUE "true"
+
+#define COLOR_MODE_COUNT 2
+#define COLOR_COMPONENT  3
+
+enum {
+	ROTATE180_ODD_PAGE = 1,
+	ROTATE180_ALL_PAGE,	
+} ;
+
+#ifdef __x86_64__
+		__asm__(".symver memcpy, memcpy@GLIBC_2.2.5");
+#endif
 
 typedef ssize_t (*cups_raster_iocb_t)(void *ctx, unsigned char *buffer, size_t length );
 
@@ -69,6 +82,9 @@ enum {
 	OPT_PRINTABLE_WIDTH,
 	OPT_PRINTABLE_HEIGHT,
 	OPT_DUPLEXPRINT,
+	OPT_COLORMODE,
+	OPT_ROTATE180,
+	OPT_OPTIMIZATION
 };
 
 static char *StringToLower ( char *src ) 
@@ -104,7 +120,15 @@ typedef struct					/**** Raster stream data ****/
 //						*bufptr,	/* Current (read) position in buffer */
 //						*bufend;	/* End of current (read) buffer */
 	size_t		bufsize;	/* Buffer size */
+	enum ColorMode	pageColorMode;	/* Page color mode */
 } pwg_raster_s;
+
+typedef struct					/**** Raster stream data ****/
+{
+	pwg_raster_s        pwgRasterList[COLOR_MODE_COUNT];
+	short 				optimization;		/* The method to check color */
+	enum ColorMode 		*jobColorMode;			/* Job color mode */
+} pwg_raster_data;
 
 typedef struct SizePixelTable {
 	char *name;
@@ -114,17 +138,25 @@ typedef struct SizePixelTable {
 
 
 /* Prototypes */
+static int pwgRasterTempOpen( pwg_raster_s *r, int pageColorMode);
+static int pwgRasterInit( pwg_raster_data **r, short optimization, enum ColorMode *jobColorMode, short isMonoChrome);
+static void pwgRasterUpdate( pwg_raster_s *r);
+static unsigned pwgRasterWriteHeaderByColorMode( pwg_raster_s *r, cups_page_header2_t *h );
+static unsigned pwgRasterWriteHeader( pwg_raster_data *r, cups_page_header2_t *h );
+static void ConvertToGray(unsigned char *src, int buffSize, unsigned char *dst);
+static int pwgRasterWritePixelsByLine( pwg_raster_data *r, unsigned char *p);
 static int ComputeDestinationSize( long in_w, long in_h, long out_w, long out_h, long *dst_w, long *dst_h, long *ofs_w, long *ofs_h );
 static int h_extend( unsigned char *in, unsigned char *out, int src_width, int dst_width, int component );
-static int WriteWhiteLineToPWG( pwg_raster_s *outras, unsigned char white, long out_buf_size, long line_num  );
+static int WriteWhiteLineToPWG( pwg_raster_data *outras, unsigned char white, long out_buf_size, long line_num  );
 static short mirror_raster( unsigned char *buf, long width, short bpp );
 static int rawRasterTempOpen( void );
-static int InitPWGPageData( pwg_raster_s **outras );
-static int CreatePWGPageData( int page, cups_page_header2_t *inheader, cups_raster_t *inras, pwg_raster_s *outras, long printable_width, long printable_height, int is_rotate );
-static int OutputPWGPageData( pwg_raster_s *outras, short isNextPgae, short page );
-static int DestroyPWGPageData( pwg_raster_s **outras );
+static int InitPWGPageData( pwg_raster_data **outras, short optimization, enum ColorMode *jobColorMode, short isMonoChrome );
+static int CreatePWGPageData( int page, cups_page_header2_t *inheader, cups_raster_t *inras, pwg_raster_data *outras, long printable_width, long printable_height, int is_rotate );
+static int OutputPWGPageDataByColor( pwg_raster_s *outras, short isNextPage, short page, enum ColorMode jobColorMode );
+static int OutputPWGPageData( pwg_raster_data *outras, short isNextPage, short page );
+static int DestroyPWGPageData( pwg_raster_data **outras );
 static int isRotate( const char *option );
-
+static void SetJobColorMode( unsigned char *in, int width, pwg_raster_data *outras );
 
 static long GetFileSize( int fd )
 {
@@ -185,23 +217,17 @@ cups_raster_io( pwg_raster_s *r,	/* I - Raster stream */
 /*
  * for write
  */
-static pwg_raster_s *pwgRasterTempOpen( void )
+static int pwgRasterTempOpen( 
+	pwg_raster_s *r,  
+	int pageColorMode)
 {
+	int result = -1;
 	char tmpName[64];
-	pwg_raster_s *r = NULL;
 	static int pwgtmp_fd;
 	DEBUG_PRINT( "DEBUG:[tocnpwg] pwgRasterTempOpen<1>\n" );
 
-	strncpy( tmpName, CNIJPWG_TEMP, 64 );
+	r->pageColorMode = pageColorMode;
 
-	if ((r = calloc(sizeof(pwg_raster_s), 1)) == NULL) {
-		goto onErr;
-	}
-
-	DEBUG_PRINT( "DEBUG:[tocnpwg] pwgRasterTempOpen<2>\n" );
-	//r->ctx  = (void *)((intptr_t)fd);
-	pwgtmp_fd = mkstemp( tmpName );
-	r->ctx = (void *)((intptr_t)pwgtmp_fd);
 	r->iocb = cups_write_fd;
 
 	/* for write */
@@ -209,19 +235,63 @@ static pwg_raster_s *pwgRasterTempOpen( void )
 	r->sync       = htonl(CUPS_RASTER_SYNCv2);
 	r->swapped    = r->sync != CUPS_RASTER_SYNCv2;
 
+	strncpy( tmpName, CNIJPWG_TEMP, 64 );
+
+	DEBUG_PRINT( "DEBUG:[tocnpwg] pwgRasterTempOpen<2>\n" );
+	//r->ctx  = (void *)((intptr_t)fd);
+	pwgtmp_fd = mkstemp( tmpName );
+	unlink( tmpName );
+	
+	r->ctx = (void *)((intptr_t)pwgtmp_fd);
+	
 	DEBUG_PRINT( "DEBUG:[tocnpwg] pwgRasterTempOpen<3>\n" );
     if (cups_raster_io(r, (unsigned char *)&(r->sync), sizeof(r->sync)) < sizeof(r->sync)) {
 		goto onErr;
 	}
-
 	DEBUG_PRINT( "DEBUG:[tocnpwg] pwgRasterTempOpen<4>\n" );
-EXIT:
-	return (r);
+	
+	result = 0;
+
 onErr:
-	if ( r != NULL ){
-		free( r );
+	return result;
+}
+
+static int pwgRasterInit( 
+	pwg_raster_data **r, 
+	short optimization, 
+	enum ColorMode *jobColorMode, 
+	short isMonoChrome)
+{
+	if ((*r = calloc(sizeof(pwg_raster_data), 1)) == NULL) {
+		return -1;
 	}
-	goto EXIT;
+
+	int listIndex = 0;
+	(*r)->optimization = optimization;
+	(*r)->jobColorMode = jobColorMode;
+	
+	if(optimization != 1){
+		DEBUG_PRINT( "DEBUG:[tocnpwg] Create 3-channel data\n" );
+		pwgRasterTempOpen(&((*r)->pwgRasterList[listIndex]), COLOR_MODE_COLOR);
+	}
+	else{
+		if(isMonoChrome == 1){
+			DEBUG_PRINT( "DEBUG:[tocnpwg] Create 1-channel data\n" );
+			pwgRasterTempOpen(&((*r)->pwgRasterList[listIndex]), COLOR_MODE_GRAY);
+		}
+		else{
+			DEBUG_PRINT( "DEBUG:[tocnpwg] Create 3-channel data\n" );
+			pwgRasterTempOpen(&((*r)->pwgRasterList[listIndex]), COLOR_MODE_COLOR);
+			listIndex++;
+
+			if(*jobColorMode == COLOR_MODE_GRAY){
+				DEBUG_PRINT( "DEBUG:[tocnpwg] Create 1-channel data\n" );
+				pwgRasterTempOpen(&((*r)->pwgRasterList[listIndex]), COLOR_MODE_GRAY);
+			}
+		}
+	}
+
+	return 0;
 }
 
 /*
@@ -281,12 +351,21 @@ static void pwgRasterClose( pwg_raster_s *r )
 		if ( r->pixels != NULL) {
 			free( r->pixels );
 		}
-		free( r);
 	}
 }
 
-static void pwgraster_update( pwg_raster_s *r ) 
+static void pwgRasterUpdate( 
+	pwg_raster_s *r)		/* I - Raster stream */
 {
+
+	if(r->pageColorMode == COLOR_MODE_COLOR){
+		r->header.cupsColorSpace = 19;
+	} else if(r->pageColorMode == COLOR_MODE_GRAY) {
+		r->header.cupsNumColors = 1;
+		r->header.cupsBitsPerPixel = 8;
+		r->header.cupsBytesPerLine = r->header.cupsWidth;
+		r->header.cupsColorSpace = 18;
+	}
 
 	/*
 	* Set the number of bytes per pixel/color...
@@ -325,7 +404,7 @@ static void pwgraster_update( pwg_raster_s *r )
 
 }
 
-static unsigned pwgRasterWriteHeader( 
+static unsigned pwgRasterWriteHeaderByColorMode( 
 	pwg_raster_s *r,			/* I - Raster stream */
 	cups_page_header2_t *h )	/* I - Raster page header */
 {
@@ -336,7 +415,7 @@ static unsigned pwgRasterWriteHeader(
 
   	memcpy(&(r->header), h, sizeof(cups_page_header2_t));
 
-	pwgraster_update( r );
+	pwgRasterUpdate(r);
 
 	/* Write Header */
 	memset(&fh, 0, sizeof(fh));
@@ -372,9 +451,9 @@ static unsigned pwgRasterWriteHeader(
 	fh.cupsBitsPerPixel      = htonl(r->header.cupsBitsPerPixel);
 	fh.cupsBytesPerLine      = htonl(r->header.cupsBytesPerLine);
 	fh.cupsColorOrder        = htonl(r->header.cupsColorOrder);
-	//fh.cupsColorSpace        = htonl(r->header.cupsColorSpace);
+	fh.cupsColorSpace        = htonl(r->header.cupsColorSpace);
 	// 2013.06.10  CUPS_CSPACE_SRG
-	fh.cupsColorSpace        = htonl( 19 );
+	//fh.cupsColorSpace        = htonl( 19 );
 	fh.cupsNumColors         = htonl(r->header.cupsNumColors);
 	//fh.cupsInteger[0]        = htonl(r->header.cupsInteger[0]);
 	// TotalPageCount Set 1
@@ -396,6 +475,21 @@ static unsigned pwgRasterWriteHeader(
 	result = 1;
 onErr:
 	return result;
+}
+
+static unsigned pwgRasterWriteHeader(
+	pwg_raster_data *r, 
+	cups_page_header2_t *h)
+{
+	for(int i = 0; i < COLOR_MODE_COUNT; i++){
+		if(r->pwgRasterList[i].pageColorMode != COLOR_MODE_UNKNOWN){
+			if(!pwgRasterWriteHeaderByColorMode(&(r->pwgRasterList[i]), h)){
+				return -1;
+			}
+		}
+	}
+
+	return 0;
 }
 
 /*
@@ -614,25 +708,87 @@ pwgRasterWritePixels(
 
 }
 
+static void ConvertToGray(unsigned char *src, int buffSize, unsigned char *dst)
+{	
+	memset(dst, 255, buffSize);
+
+	for(int i = 0 ; i < buffSize ; i++, src += 3) {
+		unsigned char r = src[0]; 
+		unsigned char g = src[1]; 
+		unsigned char b = src[2];
+		dst[i] = (unsigned char)(((2126 * r) + (7152 * g) + (722 * b))/10000);
+	}
+}
+
+static unsigned int pwgRasterWritePixelsDataByColorMode(
+	pwg_raster_s *r,		/* I - Raster stream */
+	unsigned char *p,		/* I - Bytes to write */
+	unsigned len)			/* I - Number of bytes to write */
+{
+	unsigned result = 0;
+
+	if(r->pageColorMode == COLOR_MODE_COLOR) {
+		result = pwgRasterWritePixels(r, p, len);
+	} else if(r->pageColorMode == COLOR_MODE_GRAY) {
+		unsigned char *dst;
+
+		if ( (dst = malloc(len)) == NULL ){
+			return result;
+		}	
+		ConvertToGray(p, len, dst);
+		result = pwgRasterWritePixels(r, dst, len);
+
+		free(dst);
+	}
+
+	return result;
+}
+
+static int
+pwgRasterWritePixelsByLine(
+	pwg_raster_data *r,		/* I - Raster stream */
+	unsigned char *p)		/* I - Bytes to write */
+{
+	for(int i = 0; i < COLOR_MODE_COUNT; i++){
+		if(r->pwgRasterList[i].pageColorMode != COLOR_MODE_UNKNOWN){
+			if(pwgRasterWritePixelsDataByColorMode(&(r->pwgRasterList[i]), p, r->pwgRasterList[i].header.cupsBytesPerLine) == 0){
+				return -1;
+			}
+		}
+	}
+
+	return 0;
+}
+
 int main( int argc, char *argv[] )
 {
 	int result = -1;
 	int fd;
-	pwg_raster_s *outras = NULL;
+	pwg_raster_data *outras = NULL;
   	cups_raster_t *inras = NULL;	/* Input raster stream */
 	cups_page_header2_t	inheader;	/* Input raster page header */
   	int page = 0;			/* Current page */
 	int opt, opt_index;
-	int is_rotate = 0;
+	int is_rotate_odd = 0;			/* For duplexnotumble printing, the odd page(s) rotate 180 degree */
+	int is_rotate_all = 0;			/* For all pages, rotate 180 degree */
+	int is_rotate = 0;			
+
 	struct option long_opt[] = {
 		{ "version", required_argument, NULL, OPT_VERSION }, 
 		{ "printable_width", required_argument, NULL, OPT_PRINTABLE_WIDTH }, 
 		{ "printable_height", required_argument, NULL, OPT_PRINTABLE_HEIGHT }, 
 		{ "duplexprint", required_argument, NULL, OPT_DUPLEXPRINT }, 
+		{ "grayscale", required_argument, NULL, OPT_COLORMODE }, 
+		{ "rotate180", required_argument, NULL, OPT_ROTATE180 },
+		{ "optimization", required_argument, NULL, OPT_OPTIMIZATION},
 		{ 0, 0, 0, 0 }, 
 	};
 	int isPWGExist;
 	long printable_width, printable_height;
+
+	short isMonoChrome = 0;
+	short optimization = 0;
+	enum ColorMode jobColorMode = COLOR_MODE_GRAY;
 
 	printable_width = printable_height = 0;
 	while( (opt = getopt_long( argc, argv, "0:", long_opt, &opt_index )) != -1) {
@@ -651,8 +807,29 @@ int main( int argc, char *argv[] )
 				break;
 			case OPT_DUPLEXPRINT:
 				DEBUG_PRINT3( "[tocnpwg] OPTION(%s):VALUE(%s)\n", long_opt[opt_index].name, optarg );
-				is_rotate = isRotate( optarg ); 
-				DEBUG_PRINT2( "[tocnpwg] is_rotate : %d\n", is_rotate );
+				is_rotate_odd = isRotate( optarg ); 
+				DEBUG_PRINT2( "[tocnpwg] is_rotate_odd : %d\n", is_rotate_odd );
+				break;
+			case OPT_ROTATE180:
+				DEBUG_PRINT3( "[tocnpwg] OPTION(%s):VALUE(%s)\n", long_opt[opt_index].name, optarg );
+				
+				if (strcasecmp(optarg, OPTION_TRUE) == 0) {
+					is_rotate_all = 1;					
+				}
+				DEBUG_PRINT2( "[tocnpwg] is_rotate_all : %d\n", is_rotate_all );
+				
+				break;
+			case OPT_COLORMODE:
+				DEBUG_PRINT3( "[tocnpwg] OPTION(%s):VALUE(%s)\n", long_opt[opt_index].name, optarg );
+				if(strcasecmp(optarg, OPTION_TRUE) == 0){
+					isMonoChrome = 1;
+				}
+				break;
+			case OPT_OPTIMIZATION:
+				DEBUG_PRINT3( "[tocnpwg] OPTION(%s):VALUE(%s)\n", long_opt[opt_index].name, optarg );
+				if(strcasecmp(optarg, OPTION_TRUE) == 0){
+					optimization = 1;
+				}
 				break;
 		}
 	}
@@ -676,7 +853,14 @@ int main( int argc, char *argv[] )
 			isPWGExist = 0;
 		}
 
-		InitPWGPageData( &outras );
+		/* duplexnotumble printing is prior over "180-Rotation" setting */
+		if (is_rotate_odd) {
+			is_rotate = ROTATE180_ODD_PAGE;
+		}else if (is_rotate_all) {
+			is_rotate = ROTATE180_ALL_PAGE;
+		}
+
+		InitPWGPageData( &outras, optimization, &jobColorMode, isMonoChrome );
 		if ( CreatePWGPageData( page, &inheader, inras, outras, printable_width, printable_height, is_rotate ) != 0 ) goto onErr;
 		isPWGExist = 1;
 
@@ -859,7 +1043,7 @@ onErr:
 }
 
 
-static int WriteWhiteLineToPWG( pwg_raster_s *outras, unsigned char white, long out_buf_size, long line_num  )
+static int WriteWhiteLineToPWG( pwg_raster_data *outras, unsigned char white, long out_buf_size, long line_num  )
 {
 	int result = -1;
 	long i;
@@ -869,8 +1053,8 @@ static int WriteWhiteLineToPWG( pwg_raster_s *outras, unsigned char white, long 
 	memset( ptr, white, out_buf_size );
 
 	for ( i=0; i<line_num; i++ ){
-		if (!pwgRasterWritePixels(outras, ptr, out_buf_size) < 0) {
-			DEBUG_PRINT( "DEBUG:[tocnpwg] Error in pwgRasterWritePixels\n" );
+		if (pwgRasterWritePixelsByLine(outras, ptr) != 0) {
+			DEBUG_PRINT( "DEBUG:[tocnpwg] Error in pwgRasterWritePixelsByLine\n" );
 			goto onErr2;
 		}
 	}
@@ -909,22 +1093,18 @@ onErr1:
 	return result;
 }
 
-
-
-static int InitPWGPageData( pwg_raster_s **outras )
+static int InitPWGPageData( pwg_raster_data **outras, short optimization, enum ColorMode *jobColorMode, short isMonoChrome )
 {
 	int result = -1;
 
-	if ( outras == NULL ) goto onErr;
-
-	*outras = pwgRasterTempOpen();
+	if(!pwgRasterInit(outras, optimization, jobColorMode, isMonoChrome)) goto onErr;
 
 	result = 0;
 onErr:
 	return result;
 }
 
-static int OutputPWGPageData( pwg_raster_s *outras, short isNextPage, short page )
+static int OutputPWGPageDataByColor( pwg_raster_s *outras, short isNextPage, short page, enum ColorMode jobColorMode )
 {
 	int result = -1;
 	CNDATA CNData;
@@ -937,6 +1117,9 @@ static int OutputPWGPageData( pwg_raster_s *outras, short isNextPage, short page
 	CNData.image_size = pwgRasterGetFileSize(outras);
 	CNData.next_page = isNextPage;
 	CNData.page_num = page;
+	CNData.jobColorMode = jobColorMode;
+	CNData.pageColorMode = outras->pageColorMode;
+
 	write( 1, &CNData, sizeof(CNDATA) );
 
 	/* Output PWG Page Data */
@@ -947,14 +1130,31 @@ onErr:
 	return result;
 }
 
-static int DestroyPWGPageData( pwg_raster_s **outras )
+static int OutputPWGPageData( pwg_raster_data *outras, short isNextPage, short page )
+{
+	for(int i = 0; i < COLOR_MODE_COUNT; i++){
+		if(outras->pwgRasterList[i].pageColorMode != COLOR_MODE_UNKNOWN){
+			DEBUG_PRINT2( "DEBUG:[tocnpwg] Output Page ColorMode: %d\n", outras->pwgRasterList[i].pageColorMode);
+			if(OutputPWGPageDataByColor(&(outras->pwgRasterList[i]), isNextPage, page, *(outras->jobColorMode)) != 0 ){
+				return -1;
+			}
+		}
+	}
+	return 0;
+}
+
+static int DestroyPWGPageData( pwg_raster_data **outras )
 {
 	int result = -1;
-	pwg_raster_s *l_outras = *outras;
 
 	if ( outras == NULL ) goto onErr;
 
-	pwgRasterClose(l_outras);
+	for(int i = 0; i < COLOR_MODE_COUNT; i++){
+		pwgRasterClose(&((*outras)->pwgRasterList[i]));
+	}
+
+	free(*outras);
+
 	*outras = NULL;
 
 	result = 0;
@@ -962,11 +1162,30 @@ onErr:
 	return result;
 }
 
+static void SetJobColorMode( unsigned char *in, int width, pwg_raster_data *outras)
+{
+	enum ColorMode *jobColorMode = outras->jobColorMode;
+
+	if(*jobColorMode != COLOR_MODE_GRAY || outras->optimization == 0){
+		return;
+	}
+
+	for(int i = 0 ; i < width ; i++, in += COLOR_COMPONENT){
+		unsigned char r = in[0]; 
+		unsigned char g = in[1]; 
+		unsigned char b = in[2];
+		if((b != r) || (r != g)){
+			*jobColorMode = COLOR_MODE_COLOR;
+			break;
+		}
+	}
+}
+
 static int CreatePWGPageData( 
 		int page, 
 		cups_page_header2_t *inheader, 
   		cups_raster_t *inras,
-		pwg_raster_s *outras,
+		pwg_raster_data *outras,
 		long printable_width, 
 		long printable_height, 
 		int is_rotate )
@@ -1070,7 +1289,7 @@ static int CreatePWGPageData(
 	DEBUG_PRINT2( "DEBUG:[tocnpwg] inheader->cupsPageSizeName[0]: %s\n", inheader->cupsPageSizeName );
 
 	/* Write out-Header */
-	if (!pwgRasterWriteHeader(outras, &outheader))
+	if (pwgRasterWriteHeader(outras, &outheader) != 0)
 	{
 		DEBUG_PRINT2( "DEBUG:[tocnpwg] Unable to write header for page %d.\n", page);
 		goto onErr1;
@@ -1110,7 +1329,7 @@ static int CreatePWGPageData(
 	curr_pos = 0;
 	prev_pos = -1;
 
-	if ( is_rotate && (page%2) ) {	/* Rotate 180 degree */
+	if ( (is_rotate == ROTATE180_ODD_PAGE  && (page%2) ) || (is_rotate == ROTATE180_ALL_PAGE )) {	/* Rotate 180 degree */
 		DEBUG_PRINT( "DEBUG:[tocnpwg] Rotate 180<1>\n" );
 		tmp_fd = rawRasterTempOpen();
 
@@ -1144,6 +1363,11 @@ static int CreatePWGPageData(
 			/* resize output data */
 			if ( h_extend( in_ptr, out_ptr + ofs_w * outheader.cupsNumColors, in_w, dst_w, outheader.cupsNumColors ) != 0 ) goto onErr3;
 
+			if(inheader->cupsColorSpace == CUPS_CSPACE_RGB){
+				/* check whether the image contains colorful pixel */
+				SetJobColorMode( out_ptr + ofs_w * outheader.cupsNumColors, dst_w, outras);
+			}
+
 			/* mirror raster */
 			if ( mirror_raster( out_ptr, out_buf_size/outheader.cupsNumColors, outheader.cupsNumColors ) != 0 ) goto onErr3;
 
@@ -1163,16 +1387,16 @@ static int CreatePWGPageData(
 		WriteWhiteLineToRAW( tmp_fd, white, out_buf_size, (out_h - dst_h - ofs_h) );
 
 		/* Write Temp File ********************************************************************/
-		for ( y = 0; y < dst_h; y++ ) {
+		for ( y = 0; y < out_h; y++ ) {
 			long read_top;
 
-			read_top = (dst_h - y - 1) * out_buf_size;
+			read_top = (out_h - y - 1) * out_buf_size;
 
 			lseek( tmp_fd, read_top, SEEK_SET);
 			read( tmp_fd, out_ptr, out_buf_size );
 
 			/* output data */
-			if (!pwgRasterWritePixels(outras, out_ptr, out_buf_size) < 0) {
+			if (pwgRasterWritePixelsByLine(outras, out_ptr) != 0) {
 				DEBUG_PRINT( "DEBUG:[tocnpwg] Error in pwgRasterWritePixels\n" );
 				goto onErr3;
 			}
@@ -1209,8 +1433,13 @@ static int CreatePWGPageData(
 			/* resize output data */
 			if ( h_extend( in_ptr, out_ptr + ofs_w * outheader.cupsNumColors, in_w, dst_w, outheader.cupsNumColors ) != 0 )  goto onErr3;
 
+			if(inheader->cupsColorSpace == CUPS_CSPACE_RGB){
+				/* check whether the image contains colorful pixel */
+				SetJobColorMode( out_ptr + ofs_w * outheader.cupsNumColors, dst_w, outras);
+			}
+
 			/* output data */
-			if (!pwgRasterWritePixels(outras, out_ptr, out_buf_size) < 0) {
+			if (pwgRasterWritePixelsByLine(outras, out_ptr) != 0) {
 				DEBUG_PRINT( "DEBUG:[tocnpwg] Error in pwgRasterWritePixels\n" );
 				goto onErr3;
 			}
@@ -1250,6 +1479,7 @@ static int rawRasterTempOpen( void )
 
 	strncpy( tmpName, CNIJRAW_TEMP, 64 );
 	fd = mkstemp( tmpName );
+	unlink( tmpName );
 
 	return fd;
 }
@@ -1296,7 +1526,7 @@ static int isRotate( const char *option ){
 	StringToLower( srcBuf );
 
 	if ( !strcmp( srcBuf, DUPLEX_LONGSIDE ) ){
-		result = 1;
+		result = 1 ;
 	}
 	return result;
 }

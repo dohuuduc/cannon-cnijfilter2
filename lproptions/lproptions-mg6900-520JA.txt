@@ -65,14 +65,12 @@ Copyright CANON INC. 2015
     B5                        B5 [182.0x257.0mm 7.17"x10.12"]
     4x6                       KG [101.6x152.4mm 4.00"x6.00"]
     4x6.bl                    KG (フチなし) [101.6x152.4mm 4.00"x6.00"]
-    5x7                       5x7 [127.0x177.8mm 5.00"x7.00"]
-    5x7.bl                    5x7 (フチなし) [127.0x177.8mm 5.00"x7.00"]
+    5x7in                     2L判 [127.0x177.8mm 5.00"x7.00"]
+    5x7in.bl                  2L判 (フチなし) [127.0x177.8mm 5.00"x7.00"]
     8x10                      六切 [203.2x254.0mm 8.00"x10.00"]
     8x10.bl                   六切 (フチなし) [203.2x254.0mm 8.00"x10.00"]
     l                         L判 [89.0x127.0mm 3.50"x5.00"]
     l.bl                      L判 (フチなし) [89.0x127.0mm 3.50"x5.00"]
-    2l                        2L判 [127.0x178.0mm 5.00"x7.01"]
-    2l.bl                     2L判 (フチなし) [127.0x178.0mm 5.00"x7.01"]
     Postcard                  はがき [100.0x148.0mm 3.94"x5.83"]
     Postcard.bl               はがき (フチなし) [100.0x148.0mm 3.94"x5.83"]
     envelop10p                商用10号封筒 [104.8x241.3mm 4.12"x9.50"]
@@ -182,21 +180,21 @@ Copyright CANON INC. 2015
     クリーニング
     インクの噴出し口(ノズル)の目づまりをクリーニングします。
         Fedoraの場合:
-        [user@zzz /yyy]$ lpr -P MG6900USB /usr/local/share/cmdtocanonij2/cleaning.utl
+        [user@zzz /yyy]$ lpr -P MG6900USB /usr/share/cmdtocanonij2/cleaning.utl
         Ubuntuの場合:
         [user@zzz /yyy]$ lpr -P MG6900USB /usr/share/cmdtocanonij2/cleaning.utl
 
     ノズルチェックパターン印刷
     インクの噴出し口(ノズル)が目づまりしていないかを確認するパターンを印刷します。
         Fedoraの場合:
-        [user@zzz /yyy]$ lpr -P MG6900USB /usr/local/share/cmdtocanonij2/nozzlecheck.utl
+        [user@zzz /yyy]$ lpr -P MG6900USB /usr/share/cmdtocanonij2/nozzlecheck.utl
         Ubuntuの場合:
         [user@zzz /yyy]$ lpr -P MG6900USB /usr/share/cmdtocanonij2/nozzlecheck.utl
 
     ヘッド位置調整
     プリントヘッドの取り付け位置の誤差を補正する「ヘッド位置調整」を行います。
         Fedoraの場合:
-        [user@zzz /yyy]$ lpr -P MG6900USB /usr/local/share/cmdtocanonij2/autoalign.utl
+        [user@zzz /yyy]$ lpr -P MG6900USB /usr/share/cmdtocanonij2/autoalign.utl
         Ubuntuの場合:
         [user@zzz /yyy]$ lpr -P MG6900USB /usr/share/cmdtocanonij2/autoalign.utl
 

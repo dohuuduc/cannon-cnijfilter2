@@ -3,7 +3,7 @@
 ##############################################################################
 ##
 ##  Canon Inkjet Printer Driver for Linux
-##  Copyright CANON INC. 2001-2015
+##  Copyright CANON INC. 2001-2024
 ##
 ##  This program is free software; you can redistribute it and/or modify
 ##  it under the terms of the GNU General Public License as published by
@@ -20,18 +20,17 @@
 ##
 ##############################################################################
 
-C_version="5.20-1"
-C_copyright_end="2015"
+C_version="6.80-1"
+C_copyright_end="2024"
 C_default_system="deb"
-
-P_support_printer=("MG7700" "MG6900" "MG6800" "MG5700" "MG3600")
+P_support_printer=("G4090" "G4080" "G3090" "G3080" "TS8800" "XK130")
 
 L_INST_COM_01_01="Command executed = %s\n"
 
 L_INST_COM_01_02="An error occurred. The package management system cannot be identified.\n"
 L_INST_COM_01_03="An error occurred. A necessary package could not be found in the proper location.\n"
 L_INST_COM_01_04="Installation has been completed.\n"
-L_INST_COM_01_05="An error occurred. Your environment cannot be identified as 32-bit or 64-bit.\nTry to install again by using the following command.\n"
+L_INST_COM_01_05="An error occurred. Your environment cannot be identified.\nTry to install again by using the following command.\n"
 L_INST_COM_01_06="An error occurred. The specified environment differs from your environment.\nTry to install again by using the following command.\n"
 
 L_INST_COM_02_01="Usage: %s\n"
@@ -110,7 +109,7 @@ C_function03="P_FUNC_show_copyright"
 #################################################################
 P_entry_list_path=""
 P_all_entry_list_path=""
-P_entry_list_path_rpm="/usr/local/share/"
+P_entry_list_path_rpm="/usr/share/"
 P_entry_list_path_deb="/usr/share/"
 P_entry_list_dir="cnijfilter2/"
 P_all_entry_list_dir="cnijfilter*/"
@@ -1230,8 +1229,10 @@ C_small="30"
 C_common="common"
 C_system=""
 C_arch=""
-C_arch32=""
-C_arch64=""
+C_arch_ia32=""
+C_arch_amd64=""
+C_arch_arm64=""
+C_arch_mips64=""
 
 C_err="no_error"
 C_err_unknown="err_unknown"
@@ -1239,12 +1240,12 @@ C_err_mismatch="err_mismatch"
 C_err_usage="err_usage"
 
 C_install_script_fname="install.sh"
-C_config_path_rpm="/usr/local/bin"
+C_config_path_rpm="/usr/bin"
 C_config_path_deb="/usr/bin"
 
 C_copyrightb="=================================================="
 
-C_arg_inst="[ --bit32 | --bit64 ]"
+C_arg_inst="[ --ia32 | --amd64 | --arm64 | --mips64 ]"
 C_arg_pkg="[ --uninstall | --version ]"
 
 C_FUNC_show_and_exec()
@@ -1348,19 +1349,23 @@ C_FUNC_get_system()
 	fi
 
 	if [ $C_system = "rpm" ]; then
-		C_arch32="i386"
-		C_arch64="x86_64"
+		C_arch_ia32="i386"
+		C_arch_amd64="x86_64"
+		C_arch_arm64="aarch64"
+		C_arch_mips64="mips64el"
 	else
-		C_arch32="i386"
-		C_arch64="amd64"
+		C_arch_ia32="i386"
+		C_arch_amd64="amd64"
+		C_arch_arm64="arm64"
+		C_arch_mips64="mips64el"
 	fi
 	
 	return 0
 }
 
-C_FUNC_get_bitconf()
+C_FUNC_get_uname_m()
 {
-	local c_bit_conf=""
+	local c_uname_m=""
 	local c_sudo_command=""
 	local c_arg1=$1
 
@@ -1368,47 +1373,73 @@ C_FUNC_get_bitconf()
 		c_sudo_command="sudo "
 	fi
 
-	getconf LONG_BIT 1> /dev/null 2>&1
+	uname -m 1> /dev/null 2>&1
 	if [ $? -eq 0 ]; then
-		c_bit_conf=`getconf LONG_BIT`
+		c_uname_m=`uname -m`
 	else
-		c_bit_conf=""
+		c_uname_m=""
 	fi
 
 	if [ -z $C_arch ]; then
 		# No argment and getconf=32|64 -> continue #
-		if [ -z $c_bit_conf ]; then
+		if [ -z $c_uname_m ]; then
 			if [ -z $c_arg1 ]; then
 				C_err=$C_err_unknown
 			elif [ $c_arg1 = "version" ]; then
 				C_arch="*"
 			fi
-		elif [ $c_bit_conf = "32" ]; then
-			C_arch=$C_arch32
-		elif [ $c_bit_conf = "64" ]; then
-			C_arch=$C_arch64
+		elif [ $c_uname_m = "i386" ]; then
+			C_arch=$C_arch_ia32
+		elif [ $c_uname_m = "i686" ]; then
+			C_arch=$C_arch_ia32
+		elif [ $c_uname_m = "x86_64" ]; then
+			C_arch=$C_arch_amd64
+		elif [ $c_uname_m = "aarch64" ]; then
+			C_arch=$C_arch_arm64
+		elif [ $c_uname_m = "mips64" ]; then
+			C_arch=$C_arch_mips64
 		else
 			C_err=$C_err_unknown
 		fi
 	else
-		if [ $C_arch = "32" ]; then
-			# --bit32 and getconf=error -> continue #
-			if [ -z $c_bit_conf ]; then
-				C_arch=$C_arch32
-			elif [ $c_bit_conf = "32" ]; then
-				C_arch=$C_arch32
+		if [ $C_arch = "ia32" ]; then
+			# --ia32 and uname -m=error -> continue #
+			if [ -z $c_uname_m ]; then
+				C_arch=$C_arch_ia32
+			elif [ $c_uname_m = "i386" ]; then
+				C_arch=$C_arch_ia32
+			elif [ $c_uname_m = "i686" ]; then
+				C_arch=$C_arch_ia32
 			else
 				C_err=$C_err_mismatch
 			fi
-		elif [ $C_arch = "64" ]; then
-			# --bit64 and getconf=error -> continue #
-			if [ -z $c_bit_conf ]; then
-				C_arch=$C_arch64
-			elif [ $c_bit_conf = "64" ]; then
-				C_arch=$C_arch64
+		elif [ $C_arch = "amd64" ]; then
+			# --amd64 and uname -m=error -> continue #
+			if [ -z $c_uname_m ]; then
+				C_arch=$C_arch_amd64
+			elif [ $c_uname_m = "x86_64" ]; then
+				C_arch=$C_arch_amd64
 			else
 				C_err=$C_err_mismatch
 			fi
+		elif [ $C_arch = "arm64" ]; then
+			# --arm64 and uname -m=error -> continue #
+			if [ -z $c_uname_m ]; then
+				C_arch=$C_arch_arm64
+			elif [ $c_uname_m = "aarch64" ]; then
+				C_arch=$C_arch_arm64
+			else
+				C_err=$C_err_mismatch
+			fi	
+		elif [ $C_arch = "mips64" ]; then
+			# --mips64 and uname -m=error -> continue #
+			if [ -z $c_uname_m ]; then
+				C_arch=$C_arch_mips64
+			elif [ $c_uname_m = "mips64" ]; then
+				C_arch=$C_arch_mips64
+			else
+				C_err=$C_err_mismatch
+			fi	
 		fi
 	fi
 
@@ -1511,10 +1542,14 @@ if [ ${0##*/} = $C_install_script_fname ]; then
 	### Check the argment ###
 	#########################
 	if [ $# -eq 1 ]; then
-		if  [ $C_argment = "--bit32" ]; then
-			C_arch="32"
-		elif [ $C_argment = "--bit64" ]; then
-			C_arch="64"
+		if  [ $C_argment = "--ia32" ]; then
+			C_arch="ia32"
+		elif [ $C_argment = "--amd64" ]; then
+			C_arch="amd64"
+		elif [ $C_argment = "--arm64" ]; then
+			C_arch="arm64"
+		elif [ $C_argment = "--mips64" ]; then
+			C_arch="mips64"
 		else
 			C_err=$C_err_usage
 		fi
@@ -1537,11 +1572,11 @@ if [ ${0##*/} = $C_install_script_fname ]; then
 		exit
 	fi
 
-    #########################
-	### Judge 32bit/64bit ###
-    #########################
+    ##########################
+	### Judge architecture ###
+    ##########################
 
-	C_FUNC_get_bitconf
+	C_FUNC_get_uname_m
 	if [ $? -ne 0 ]; then
 		exit
 	fi
@@ -1605,8 +1640,10 @@ if [ ${0##*/} = $C_install_script_fname ]; then
 		c_installed_pkg=`rpm -q $c_pkg_name`
 		if [ $? -eq 0 ]; then
 			c_installed_pkg_ver=`echo ${c_installed_pkg##$c_pkg_name-}`
-			c_installed_pkg_ver=`echo ${c_installed_pkg_ver%%.$C_arch32}`
-			c_installed_pkg_ver=`echo ${c_installed_pkg_ver%%.$C_arch64}`
+			c_installed_pkg_ver=`echo ${c_installed_pkg_ver%%.$C_arch_ia32}`
+			c_installed_pkg_ver=`echo ${c_installed_pkg_ver%%.$C_arch_amd64}`
+			c_installed_pkg_ver=`echo ${c_installed_pkg_ver%%.$C_arch_arm64}`
+			c_installed_pkg_ver=`echo ${c_installed_pkg_ver%%.$C_arch_mips64}`
 			C_FUNC_version_comp $c_installed_pkg_ver $C_version
 			if [ $? -ne $C_small ]; then
 				c_exec_update=0
@@ -1651,8 +1688,8 @@ if [ ${0##*/} = $C_install_script_fname ]; then
 			$c_sudo_command mkdir /usr
 		fi
 		if [ $2 = "rpm" ]; then
-			if [ ! -d /usr/local ]; then
-				mkdir /usr/local
+			if [ ! -d /usr ]; then
+				mkdir /usr
 			fi
 			c_config_path=$C_config_path_rpm
 		else
@@ -1682,13 +1719,13 @@ if [ ${0##*/} = $C_install_script_fname ]; then
 			$c_sudo_command mkdir /usr
 		fi
 		if [ $C_system = "rpm" ]; then
-			if [ ! -d /usr/local ]; then
-				mkdir /usr/local
+			if [ ! -d /usr ]; then
+				mkdir /usr
 			fi
-			if [ ! -d /usr/local/share ]; then
-				mkdir /usr/local/share
+			if [ ! -d /usr/share ]; then
+				mkdir /usr/share
 			fi
-			c_lcfile_dstpath="/usr/local/share"
+			c_lcfile_dstpath="/usr/share"
 		else
 			if [ ! -d /usr/share ]; then
 				$c_sudo_command mkdir /usr/share
@@ -1760,7 +1797,7 @@ else
 	### Localize ###
     ################
 	if [ $C_system = "rpm" ]; then
-		C_local_path_pkgconf="/usr/local/share/${C_main_module}-pkgconfig"
+		C_local_path_pkgconf="/usr/share/${C_main_module}-pkgconfig"
 	else
 		C_local_path_pkgconf="/usr/share/${C_main_module}-pkgconfig"
 	fi
@@ -1839,7 +1876,7 @@ else
 		C_pkgconfigsh=${0##*/}
 		C_pkgconfig=${C_pkgconfigsh%%\.sh}
 		if [ $C_system = "rpm" ]; then
-			C_lcfile_path="/usr/local/share/${C_pkgconfig}"
+			C_lcfile_path="/usr/share/${C_pkgconfig}"
 		else
 			C_lcfile_path="/usr/share/${C_pkgconfig}"
 		fi
@@ -1855,11 +1892,11 @@ else
 	###############################
 	elif [ $C_argment = "--version" ]; then
 
-	    #########################
-		### Judge 32bit/64bit ###
-	    #########################
+	    ##########################
+		### Judge architecture ###
+	    ##########################
 		 
-		C_FUNC_get_bitconf version
+		C_FUNC_get_uname_m version
 		if [ $? -eq $C_ERR_CODE ]; then
 			exit
 		fi

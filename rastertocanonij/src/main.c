@@ -1,6 +1,6 @@
 /*
  *  CUPS add-on module for Canon Inkjet Printer.
- *  Copyright CANON INC. 2001-2015
+ *  Copyright CANON INC. 2001-2024
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -43,19 +43,25 @@
 #define CMD_BUF_SIZE (1024*3)
 
 #define TOPWG_PATH PROG_PATH
-//#define TOPWG_PATH  "/usr/local/bin/tocnpwg"
+//#define TOPWG_PATH  "/usr/bin/tocnpwg"
 #define TOPWG_BIN	"tocnpwg"
 
 #define TOJPEG_PATH  PROG_PATH
-//#define TOJPEG_PATH  "/usr/local/bin/tocnjpeg"
+//#define TOJPEG_PATH  "/usr/bin/tocnjpeg"
 #define TOJPEG_BIN	 "tocnjpeg"
 
 #define TOCNIJ_PATH	PROG_PATH
-//#define TOCNIJ_PATH	"/usr/local/bin"
+//#define TOCNIJ_PATH	"/usr/bin"
 #define TOCNIJ_BIN	"tocanonij"
-//#define TOCNIJ_PATH	"/usr/local/bin/tocanonij"
+//#define TOCNIJ_PATH	"/usr/bin/tocanonij"
 
 #define CUSTOM_PAGESIZE_STR "PageSize=Custom"
+
+#define UUID_PTN	"job-uuid=urn:uuid:"
+#define UUID_LEN	(37)
+
+// #define DEBUG_LOG
+
 
 int g_filter_pid = -1;
 int g_signal_received = 0;
@@ -70,7 +76,7 @@ static void sigterm_handler( int sigcode )
 
 static int exec_filter(char *cmd_buf, int ofd, int fds[2])
 {
-	int status = 0;
+	// int status = 0;
 	int	child_pid = -1;
 	char *filter_param[4];
 	char shell_buf[256];
@@ -111,7 +117,7 @@ static int exec_filter(char *cmd_buf, int ofd, int fds[2])
 				execv(shell_buf, filter_param);
 						
 				fprintf(stderr, "execl() error\n");
-				status = -1;
+				// status = -1;
 			}
 		}
 		else if( child_pid != -1 )
@@ -308,6 +314,25 @@ int main(int argc, char *argv[])
 		fprintf( stderr, "DEBUG:[rastertocanonij] GetOptionBufSize in Error\n" );
 		goto onErr4;
 	}
+
+
+	char	uuid[UUID_LEN];
+	char	jobID[20];
+	char	*cnt = NULL;
+
+	memset(uuid, '\0', UUID_LEN);
+	memset(jobID, '\0', 20);
+
+	cnt = strstr( argv[5], UUID_PTN);
+
+	if( cnt != NULL ){
+		strncpy( uuid, cnt + sizeof(UUID_PTN) - 1, UUID_LEN - 1 );
+	}
+
+	strncpy( jobID, argv[1], strlen(argv[1]) );
+
+	param_list_add( &p_list, "--jobid", jobID, strlen(jobID) + 1 );
+	param_list_add( &p_list, "--uuid", uuid, strlen(uuid) + 1 );
 
 	/* Allocate Command Buffer */
 	cmd_buf_size = CMD_BUF_SIZE;

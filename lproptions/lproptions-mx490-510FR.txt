@@ -64,8 +64,8 @@ Format page **
     B5                        B5 [182.0x257.0mm 7.17"x10.12"]
     4x6                       4"x6" [101.6x152.4mm 4.00"x6.00"]
     4x6.bl                    4"x6" (sans bordure) [101.6x152.4mm 4.00"x6.00"]
-    5x7                       5"x7" [127.0x177.8mm 5.00"x7.00"]
-    5x7.bl                    5"x7" (sans bordure) [127.0x177.8mm 5.00"x7.00"]
+    5x7in                     5"x7" [127.0x177.8mm 5.00"x7.00"]
+    5x7in.bl                  5"x7" (sans bordure) [127.0x177.8mm 5.00"x7.00"]
     8x10                      8"x10" [203.2x254.0mm 8.00"x10.00"]
     8x10.bl                   8"x10" (sans bordure) [203.2x254.0mm 8.00"x10.00"]
     envelop10p                Env. comm. nº 10 [104.8x241.3mm 4.12"x9.50"]
@@ -156,7 +156,7 @@ Copies
     Nettoyage des têtes d'impression
     Nettoie les buses des têtes d'impression obstruées.
         Pour Fedora:
-        [user@zzz /yyy]$ lpr -P MX490USB /usr/local/share/cmdtocanonij2/cleaning.utl
+        [user@zzz /yyy]$ lpr -P MX490USB /usr/share/cmdtocanonij2/cleaning.utl
         Pour Ubuntu:
         [user@zzz /yyy]$ lpr -P MX490USB /usr/share/cmdtocanonij2/cleaning.utl
 
@@ -164,7 +164,7 @@ Copies
     Imprime un motif qui vous permet de vérifier si les buses de la tête
      d'impression sont obstruées.
         Pour Fedora:
-        [user@zzz /yyy]$ lpr -P MX490USB /usr/local/share/cmdtocanonij2/nozzlecheck.utl
+        [user@zzz /yyy]$ lpr -P MX490USB /usr/share/cmdtocanonij2/nozzlecheck.utl
         Pour Ubuntu:
         [user@zzz /yyy]$ lpr -P MX490USB /usr/share/cmdtocanonij2/nozzlecheck.utl
 

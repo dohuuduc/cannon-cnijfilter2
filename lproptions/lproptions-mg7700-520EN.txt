@@ -65,14 +65,12 @@ Page Size **
     B5                        B5 [7.17"x10.12" 182.0x257.0mm]
     4x6                       4"x6" [4.00"x6.00" 101.6x152.4mm]
     4x6.bl                    4"x6"(borderless) [4.00"x6.00" 101.6x152.4mm]
-    5x7                       5"x7" [5.00"x7.00" 127.0x177.8mm]
-    5x7.bl                    5"x7"(borderless) [5.00"x7.00" 127.0x177.8mm]
+    5x7in                     5"x7" [5.00"x7.00" 127.0x177.8mm]
+    5x7in.bl                  5"x7"(borderless) [5.00"x7.00" 127.0x177.8mm]
     8x10                      8"x10" [8.00"x10.00" 203.2x254.0mm]
     8x10.bl                   8"x10"(borderless) [8.00"x10.00" 203.2x254.0mm]
     l                         L [3.50"x5.00" 89.0x127.0mm]
     l.bl                      L(borderless) [3.50"x5.00" 89.0x127.0mm]
-    2l                        2L [5.00"x7.01" 127.0x178.0mm]
-    2l.bl                     2L(borderless) [5.00"x7.01" 127.0x178.0mm]
     Postcard                  Hagaki [3.94"x5.83" 100.0x148.0mm]
     Postcard.bl               Hagaki(borderless) [3.94"x5.83" 100.0x148.0mm]
     envelop10p                Envelope Com 10 [4.12"x9.50" 104.8x241.3mm]
@@ -188,21 +186,21 @@ Copies
     Print Head Cleaning
     Cleans clogged print head nozzles.
         For Fedora:
-        [user@zzz /yyy]$ lpr -P MG7700USB /usr/local/share/cmdtocanonij2/cleaning.utl
+        [user@zzz /yyy]$ lpr -P MG7700USB /usr/share/cmdtocanonij2/cleaning.utl
         For Ubuntu:
         [user@zzz /yyy]$ lpr -P MG7700USB /usr/share/cmdtocanonij2/cleaning.utl
 
     Print nozzle check pattern
     Prints a pattern that lets you check whether the print head nozzles are clogged.
         For Fedora:
-        [user@zzz /yyy]$ lpr -P MG7700USB /usr/local/share/cmdtocanonij2/nozzlecheck.utl
+        [user@zzz /yyy]$ lpr -P MG7700USB /usr/share/cmdtocanonij2/nozzlecheck.utl
         For Ubuntu:
         [user@zzz /yyy]$ lpr -P MG7700USB /usr/share/cmdtocanonij2/nozzlecheck.utl
 
     Print Head Alignment
     Starting print head alignment to compensate for print head installation positioning error.
         For Fedora:
-        [user@zzz /yyy]$ lpr -P MG7700USB /usr/local/share/cmdtocanonij2/autoalign.utl
+        [user@zzz /yyy]$ lpr -P MG7700USB /usr/share/cmdtocanonij2/autoalign.utl
         For Ubuntu:
         [user@zzz /yyy]$ lpr -P MG7700USB /usr/share/cmdtocanonij2/autoalign.utl
 

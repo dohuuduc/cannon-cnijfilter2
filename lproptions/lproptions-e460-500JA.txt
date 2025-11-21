@@ -51,7 +51,7 @@ Copyright CANON INC. 2014
     A4                        A4 [210.0x297.0mm 8.27"x11.69"]
     B5                        B5 [182.0x257.0mm 7.17"x10.12"]
     4x6                       KG [101.6x152.4mm 4.00"x6.00"]
-    5x7                       5x7 [127.0x177.8mm 5.00"x7.00"]
+    5x7in                     2L判 [127.0x177.8mm 5.00"x7.00"]
 
 印刷サイズ
 
@@ -110,14 +110,14 @@ Copyright CANON INC. 2014
     クリーニング
     インクの噴出し口(ノズル)の目づまりをクリーニングします。
         Fedoraの場合:
-        [user@zzz /yyy]$ lpr -P E460USB /usr/local/share/cmdtocanonij2/cleaning.utl
+        [user@zzz /yyy]$ lpr -P E460USB /usr/share/cmdtocanonij2/cleaning.utl
         Ubuntuの場合:
         [user@zzz /yyy]$ lpr -P E460USB /usr/share/cmdtocanonij2/cleaning.utl
 
     ノズルチェックパターン印刷
     インクの噴出し口(ノズル)が目づまりしていないかを確認するパターンを印刷します。
         Fedoraの場合:
-        [user@zzz /yyy]$ lpr -P E460USB /usr/local/share/cmdtocanonij2/nozzlecheck.utl
+        [user@zzz /yyy]$ lpr -P E460USB /usr/share/cmdtocanonij2/nozzlecheck.utl
         Ubuntuの場合:
         [user@zzz /yyy]$ lpr -P E460USB /usr/share/cmdtocanonij2/nozzlecheck.utl
 

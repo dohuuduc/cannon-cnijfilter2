@@ -1,6 +1,6 @@
 /*
  *  CUPS add-on module for Canon Inkjet Printer.
- *  Copyright CANON INC. 2001-2015
+ *  Copyright CANON INC. 2001-2024
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -33,8 +33,10 @@ int GetPrinterSettings( cups_option_t *p_cups_opt, int num_opt, ParamList **p_li
 	ppd_file_t *p_ppd;
 	ppd_choice_t *p_choice;
 	int result = -1;
-	PpdToOptKey *p_opt_key_table = alloc_opt_key_table(p_ppd_name);
-	PpdToOptKey *p_table = p_opt_key_table;
+	PpdToOptKey *p_opt_key_table = alloc_opt_key_table(p_ppd_name, "*%CNPpdToOptKey");
+	PpdToOptKey *p_fixed_key_table = alloc_opt_key_table(p_ppd_name, "*%CNPpdToFixedKey");
+	PpdToOptKey *p_opt_table = p_opt_key_table;
+	PpdToOptKey *p_fixed_table = p_fixed_key_table;
 	int numCnt = 0;
 	char choice[BUF_SIZE];
 	ParamList *local_p_list = NULL;
@@ -56,13 +58,13 @@ int GetPrinterSettings( cups_option_t *p_cups_opt, int num_opt, ParamList **p_li
 		param_list_add( &local_p_list, "--filterpath", libpath, strlen(libpath) + 1 );
 	}
 
-	while( p_table->ppd_key != NULL ){
-		p_choice = ppdFindMarkedChoice( p_ppd, p_table->ppd_key );
+	while( p_opt_table->ppd_key != NULL ){
+		p_choice = ppdFindMarkedChoice( p_ppd, p_opt_table->ppd_key );
 		if ( p_choice ) {
-			DEBUG_PRINT3( "DEBUG:[rastertocanonij] OPTION(%s) / VALUE(%s)\n", p_table->ppd_key, p_choice->choice );
+			DEBUG_PRINT3( "DEBUG:[rastertocanonij] OPTION(%s) / VALUE(%s)\n", p_opt_table->ppd_key, p_choice->choice );
 		}
 		else {
-			DEBUG_PRINT2( "DEBUG:[rastertocanonij] OPTION(%s) / VALUE(novalue)\n", p_table->ppd_key );
+			DEBUG_PRINT2( "DEBUG:[rastertocanonij] OPTION(%s) / VALUE(novalue)\n", p_opt_table->ppd_key );
 		}
 
 		if ( p_choice != NULL ){
@@ -70,10 +72,17 @@ int GetPrinterSettings( cups_option_t *p_cups_opt, int num_opt, ParamList **p_li
 			strncpy( choice, p_choice->choice, BUF_SIZE );
 			choice[BUF_SIZE -1] = '\0';
 			//to_lower_except_size_X(choice);
-			param_list_add( &local_p_list, p_table->opt_key, choice, strlen(choice) + 1 );
+			param_list_add( &local_p_list, p_opt_table->opt_key, choice, strlen(choice) + 1 );
 			numCnt++;
 		}
-		p_table++;
+		p_opt_table++;
+	}
+
+	while( p_fixed_table->ppd_key != NULL ){
+		DEBUG_PRINT3( "DEBUG:[rastertocanonij] OPTION(%s) / VALUE(%s)\n", p_fixed_table->fixed_key, p_fixed_table->fixed_value );
+		param_list_add( &local_p_list, p_fixed_table->fixed_key, p_fixed_table->fixed_value, strlen(p_fixed_table->fixed_value) + 1 );
+		numCnt++;
+		p_fixed_table++;
 	}
 
 	*listNum = numCnt;

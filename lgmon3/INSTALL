@@ -16,7 +16,7 @@ To build and install backend:
  
  
      Example:
-           ./autogen.sh --prefix=/usr --enable-progpath=/usr/local/bin --datadir=/usr/local/share
+           ./autogen.sh --prefix=/usr --enable-progpath=/usr/bin --datadir=/usr/share
            make
            make install
 

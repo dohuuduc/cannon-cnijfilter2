@@ -1,6 +1,6 @@
 /*
  *  Canon Inkjet Printer Driver for Linux
- *  Copyright CANON INC. 2001-2015
+ *  Copyright CANON INC. 2001-2024
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -41,6 +41,7 @@
 
 #include <cups/ppd.h>
 #include "cnijcomif.h"
+#include "cnijutil.h"
 
 /*-------Magic Number------------------*/
 #define CN_PRINTER_CLASS 		(7)
@@ -48,19 +49,21 @@
 #define CN_SIGINT 				(SIGINT)
 #define CN_SIGTERM 				(SIGTERM)
 #define CN_START_JOBID 			("00000001")
+#define CN_START_JOBID2 		("00000002")
 #define CN_CMD_INSTALL_USB		("--installer_usb")
 #define CN_CMD_INSTALL_NET		("--installer_net")
 #define CN_CNCL_LIB_PATH		("libcnbpcnclapi%s.so")
 
 #define CN_WRITE_SIZE 			(4096)
 #define CN_READ_SIZE 			(4096)
+#define CN_READ_SIZE_BIG		(1024 * 16)
 #define CN_LIB_PATH_LEN			(512)
 #define CN_SERIAL_NUM_LEN		(256)
 #define CN_DEVICE_URI_LEN		(256)
 #define CN_MODEL_ID_LEN			(64)
 #define CN_STAT_MSG_LEN			(64)
 #define CN_DEVICE_ID_LEN		(32)
-#define CN_IVEC_SUPPORT_CODE_LENGTH	(10)
+#define CN_IVEC_SUPPORT_CODE_LENGTH	(100)
 #define CN_IVEC_JOBID_LEN 		(9)
 
 /*-------Response opreation id-------*/
@@ -105,10 +108,18 @@
 #define CN_LGMON_BUSY							(-8)
 #define CN_LGMON_OTHER_ERROR					(-65534)
 
+#define CLSS_OK						(0)
+#define CLSS_NOT_SUPPORT_CUSTOM		(10)
+#define CLSS_OK_AND_IDLE			(11)
+#define CLSS_OK_AND_CANCEL			(12)
+#define CLSS_NOT_SUPP_AND_IDLE		(13)
+#define CLSS_NOT_SUPP_AND_CANCEL	(14)
+
+#define CLSS_NOT_SUPPORT			(1)
 
 void CNIF_SetSignal(int sign);
 void CNIF_SigCatch(int sign);
-int CNIF_GetResponse(CNIF_INFO *if_info, char *jobId, int *response_detail);
+int CNIF_GetResponse(CNIF_INFO *if_info, char *jobId, int *response_detail, int isPrinting);
 
 #endif
 

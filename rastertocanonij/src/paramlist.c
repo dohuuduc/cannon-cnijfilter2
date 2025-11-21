@@ -1,6 +1,6 @@
 /*
  *  CUPS add-on module for Canon Inkjet Printer.
- *  Copyright CANON INC. 2001-2015
+ *  Copyright CANON INC. 2001-2024
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,6 +26,9 @@
 #include "com_def.h"
 #include "paramlist.h"
 
+#ifdef __x86_64__
+		__asm__(".symver memcpy, memcpy@GLIBC_2.2.5");
+#endif
 
 ParamList *param_list_find(ParamList *pl, const char *key)
 {

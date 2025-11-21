@@ -1,6 +1,6 @@
 /*
  *  CUPS add-on module for Canon Inkjet Printer.
- *  Copyright CANON INC. 2001-2015
+ *  Copyright CANON INC. 2001-2024
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -26,10 +26,18 @@
 #define MAGIC_NUMBER_FOR_CNIJPWG	0x12340001
 #define MAGIC_NUMBER_FOR_CNIJJPEG	0x12340002
 
+enum ColorMode{
+	COLOR_MODE_UNKNOWN = 0,
+	COLOR_MODE_COLOR,
+	COLOR_MODE_GRAY
+};
+
 typedef struct cndata {
 	long	magic_num;
 	long	image_size;
 	short	next_page;
 	short	page_num;
+	enum ColorMode	jobColorMode;
+	enum ColorMode	pageColorMode;
 	long	reserve[13];
 } CNDATA, *LPCNDATA;

@@ -1,18 +1,38 @@
-%define VERSION 5.20
+%define VERSION 6.80
 %define RELEASE 1
 
-%define _arc  %(getconf LONG_BIT)
-%define _is64 %(if [ `getconf LONG_BIT` = "64" ] ; then  printf "64";  fi)
+%ifarch x86_64
+%define	_machine_type "MACHINETYPE=x86_64"
+%define	_cflags "CFLAGS=-m64 -march=x86-64"
+%define	_arc _x86_64
+%define _com_libdir /usr/lib64
+%else
+%ifarch aarch64
+%define	_machine_type "MACHINETYPE=aarch64"
+%define _cflags ""
+%define	_arc _aarch64
+%define _com_libdir /usr/lib64
+%else
+%ifarch mips64el
+%define	_machine_type "MACHINETYPE=mips64el"
+%define _cflags ""
+%define	_arc _mips64
+%define _com_libdir /usr/lib64
+%else
+%define	_machine_type "MACHINETYPE=i686"
+%define	_cflags "CFLAGS=-m32 -march=i686"
+%define	_arc _i686
+%define _com_libdir /usr/lib
+%endif
+%endif
+%endif
 
-%define _cupsbindir /usr/lib/cups
-%define _cupsbindir64 /usr/lib64/cups
-
-%define _prefix	/usr/local
+%define _prefix	/usr
 %define _bindir %{_prefix}/bin
-%define _libdir /usr/lib%{_is64}
 %define _ppddir /usr
+%define _libdir /usr/lib
 
-%define COM_LIBS libcnnet2 libcnbpcnclapicom2
+%define COM_LIBS libcnnet2 libcnbpcnclapicom2 libcnbpnet20 libcnbpnet30
 %define CNLIBS /bjlib2
 
 Summary: IJ Printer Driver Ver.%{VERSION} for Linux
@@ -38,80 +58,108 @@ printers operating under the CUPS (Common UNIX Printing System) environment.
 
 
 %build
-pushd cmdtocanonij2
-    ./autogen.sh --prefix=/usr --datadir=%{_prefix}/share LDFLAGS="-L../../com/libs_bin%{_arc}"
-	make
-popd
+if [ %{nobuild} != '1' ]; then
+	cd cmdtocanonij2
+		./autogen.sh %{_machine_type} %{_cflags} --prefix=/usr --libdir=%{_libdir} --datadir=%{_prefix}/share LDFLAGS="-L../../com/libs_bin%{_arc}"
+		make
+	cd -
 
-pushd cnijbe2
-    ./autogen.sh --prefix=/usr --enable-progpath=%{_bindir} 
-	make
-popd
+	cd cmdtocanonij3
+		./autogen.sh %{_machine_type} %{_cflags} --prefix=/usr --libdir=%{_libdir} --datadir=%{_prefix}/share LDFLAGS="-L../../com/libs_bin%{_arc}"
+		make
+	cd -
 
-pushd lgmon3
-    ./autogen.sh --prefix=%{_prefix} --enable-libpath=%{_libdir}%{CNLIBS} --enable-progpath=%{_bindir} --datadir=%{_prefix}/share LDFLAGS="-L../../com/libs_bin%{_arc}"
-	make
-popd
+	cd cnijbe2
+		./autogen.sh %{_machine_type} %{_cflags} --prefix=/usr --libdir=%{_libdir} --enable-progpath=%{_bindir} 
+		make
+	cd -
 
-pushd rastertocanonij
-    ./autogen.sh --prefix=/usr --enable-progpath=%{_bindir}
-	make
-popd
+	cd lgmon3
+		./autogen.sh %{_machine_type} %{_cflags} --prefix=%{_prefix} --enable-libpath=%{_libdir}%{CNLIBS} --enable-progpath=%{_bindir} --datadir=%{_prefix}/share LDFLAGS="-L../../com/libs_bin%{_arc}"
+		make
+	cd -
 
-pushd tocanonij
-    ./autogen.sh --prefix=%{_prefix}
-	make
-popd
+	cd rastertocanonij
+		./autogen.sh %{_machine_type} %{_cflags} --prefix=/usr --libdir=%{_libdir} --enable-progpath=%{_bindir}
+		make
+	cd -
 
-pushd tocnpwg
-    ./autogen.sh --prefix=%{_prefix}
-	make
-popd
+	cd tocanonij
+		./autogen.sh %{_machine_type} %{_cflags} --prefix=%{_prefix}
+		make
+	cd -
+
+	cd tocnpwg
+		./autogen.sh %{_machine_type} %{_cflags} --prefix=%{_prefix}
+		make
+	cd -
+fi
 
 
 %install
+mkdir -p ${RPM_BUILD_ROOT}%{_com_libdir}
 mkdir -p ${RPM_BUILD_ROOT}%{_libdir}%{CNLIBS}
 mkdir -p ${RPM_BUILD_ROOT}%{_bindir}
-mkdir -p ${RPM_BUILD_ROOT}%{_cupsbindir}/filter
-mkdir -p ${RPM_BUILD_ROOT}%{_cupsbindir}/backend
-mkdir -p ${RPM_BUILD_ROOT}%{_cupsbindir64}/filter
-mkdir -p ${RPM_BUILD_ROOT}%{_cupsbindir64}/backend
+mkdir -p ${RPM_BUILD_ROOT}%{_libdir}/cups/filter
+mkdir -p ${RPM_BUILD_ROOT}%{_libdir}/cups/backend
 mkdir -p ${RPM_BUILD_ROOT}%{_ppddir}/share/cups/model
+mkdir -p ${RPM_BUILD_ROOT}%{_prefix}/share/cnijlgmon3
+mkdir -p ${RPM_BUILD_ROOT}%{_prefix}/share/cmdtocanonij2
+mkdir -p ${RPM_BUILD_ROOT}%{_prefix}/share/cmdtocanonij3
+mkdir -p ${RPM_BUILD_ROOT}%{_prefix}/share/locale/de/LC_MESSAGES
+mkdir -p ${RPM_BUILD_ROOT}%{_prefix}/share/locale/fr/LC_MESSAGES
+mkdir -p ${RPM_BUILD_ROOT}%{_prefix}/share/locale/ja/LC_MESSAGES
+mkdir -p ${RPM_BUILD_ROOT}%{_prefix}/share/locale/zh/LC_MESSAGES
 
-install -c -m 644 com/ini/cnnet.ini  		${RPM_BUILD_ROOT}%{_libdir}%{CNLIBS}
-install -c -s -m 755 com/libs_bin%{_arc}/*.so.* 	${RPM_BUILD_ROOT}%{_libdir}
+install -c -m 644 com/ini/cnnet.ini ${RPM_BUILD_ROOT}%{_libdir}%{CNLIBS}
+install -c -m 755 com/libs_bin%{_arc}/*.so.* ${RPM_BUILD_ROOT}%{_com_libdir}
 
-pushd ppd
-	install -m 644 *.ppd ${RPM_BUILD_ROOT}%{_ppddir}/share/cups/model
-popd
+install -m 644 ppd/*.ppd ${RPM_BUILD_ROOT}%{_ppddir}/share/cups/model
 
-pushd cmdtocanonij2
-	make install DESTDIR=${RPM_BUILD_ROOT}
-popd
+if [ %{nobuild} != '1' ]; then
+	cd cmdtocanonij2
+		make install DESTDIR=${RPM_BUILD_ROOT}
+	cd -
 
-pushd cnijbe2
-	make install DESTDIR=${RPM_BUILD_ROOT}
-popd
+	cd cmdtocanonij3
+		make install DESTDIR=${RPM_BUILD_ROOT}
+	cd -
 
-pushd lgmon3
-	make install DESTDIR=${RPM_BUILD_ROOT}
-popd
+	cd cnijbe2
+		make install DESTDIR=${RPM_BUILD_ROOT}
+	cd -
 
-pushd rastertocanonij
-	make install DESTDIR=${RPM_BUILD_ROOT}
-popd
+	cd lgmon3
+		make install DESTDIR=${RPM_BUILD_ROOT}
+	cd -
 
-pushd tocanonij
-	make install DESTDIR=${RPM_BUILD_ROOT}
-popd
+	cd rastertocanonij
+		make install DESTDIR=${RPM_BUILD_ROOT}
+	cd -
 
-pushd tocnpwg
-	make install DESTDIR=${RPM_BUILD_ROOT}
-popd
+	cd tocanonij
+		make install DESTDIR=${RPM_BUILD_ROOT}
+	cd -
 
-install -c -m 755 ${RPM_BUILD_ROOT}%{_cupsbindir}/filter/cmdtocanonij2	${RPM_BUILD_ROOT}%{_cupsbindir64}/filter/cmdtocanonij2
-install -c -m 755 ${RPM_BUILD_ROOT}%{_cupsbindir}/filter/rastertocanonij	${RPM_BUILD_ROOT}%{_cupsbindir64}/filter/rastertocanonij
-install -c -m 755 ${RPM_BUILD_ROOT}%{_cupsbindir}/backend/cnijbe2	${RPM_BUILD_ROOT}%{_cupsbindir64}/backend/cnijbe2
+	cd tocnpwg
+		make install DESTDIR=${RPM_BUILD_ROOT}
+	cd -
+else
+	install -c -m 755 com/libs_bin%{_arc}/cmdtocanonij2 ${RPM_BUILD_ROOT}%{_libdir}/cups/filter
+	install -c -m 755 com/libs_bin%{_arc}/cmdtocanonij3 ${RPM_BUILD_ROOT}%{_libdir}/cups/filter
+	install -c -m 755 com/libs_bin%{_arc}/rastertocanonij ${RPM_BUILD_ROOT}%{_libdir}/cups/filter
+	install -c -m 755 com/libs_bin%{_arc}/cnijbe2 ${RPM_BUILD_ROOT}%{_libdir}/cups/backend
+	install -c -m 755 com/libs_bin%{_arc}/tocanonij ${RPM_BUILD_ROOT}%{_bindir}
+	install -c -m 755 com/libs_bin%{_arc}/tocnpwg ${RPM_BUILD_ROOT}%{_bindir}
+	install -c -m 755 com/libs_bin%{_arc}/cnijlgmon3 ${RPM_BUILD_ROOT}%{_bindir}
+	install -c -m 644 cmdtocanonij2/utilfiles/*.utl ${RPM_BUILD_ROOT}%{_prefix}/share/cmdtocanonij2
+	install -c -m 644 cmdtocanonij3/utilfiles/*.utl ${RPM_BUILD_ROOT}%{_prefix}/share/cmdtocanonij3
+	install -c -m 644 lgmon3/keytext/*.res ${RPM_BUILD_ROOT}%{_prefix}/share/cnijlgmon3
+	install -c -m 644 com/libs_bin%{_arc}/de/LC_MESSAGES/cnijlgmon3.mo ${RPM_BUILD_ROOT}%{_prefix}/share/locale/de/LC_MESSAGES
+	install -c -m 644 com/libs_bin%{_arc}/fr/LC_MESSAGES/cnijlgmon3.mo ${RPM_BUILD_ROOT}%{_prefix}/share/locale/fr/LC_MESSAGES
+	install -c -m 644 com/libs_bin%{_arc}/ja/LC_MESSAGES/cnijlgmon3.mo ${RPM_BUILD_ROOT}%{_prefix}/share/locale/ja/LC_MESSAGES
+	install -c -m 644 com/libs_bin%{_arc}/zh/LC_MESSAGES/cnijlgmon3.mo ${RPM_BUILD_ROOT}%{_prefix}/share/locale/zh/LC_MESSAGES
+fi
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -125,8 +173,8 @@ fi
 %postun
 for LIBS in %{COM_LIBS}
 do
-	if [ -h %{_libdir}/${LIBS}.so ]; then
-		rm -f %{_libdir}/${LIBS}.so
+	if [ -h %{_com_libdir}/${LIBS}.so ]; then
+		rm -f %{_com_libdir}/${LIBS}.so
 	fi	
 done
 if [ "$1" = 0 ] ; then
@@ -140,26 +188,31 @@ fi
 %files
 %defattr(-,root,root)
 %{_ppddir}/share/cups/model/canon*.ppd
-%{_cupsbindir}/filter/cmdtocanonij2
-%{_cupsbindir}/filter/rastertocanonij
-%{_cupsbindir}/backend/cnijbe2
-%{_cupsbindir64}/filter/cmdtocanonij2
-%{_cupsbindir64}/filter/rastertocanonij
-%{_cupsbindir64}/backend/cnijbe2
+%{_libdir}/cups/filter/cmdtocanonij2
+%{_libdir}/cups/filter/cmdtocanonij3
+%{_libdir}/cups/filter/rastertocanonij
+%{_libdir}/cups/backend/cnijbe2
 %{_bindir}/tocanonij
 %{_bindir}/tocnpwg
 %{_bindir}/cnijlgmon3
-%{_libdir}/libcnbpcnclapicom2.so*
-%{_libdir}/libcnnet2.so*
+%{_com_libdir}/libcnbpcnclapicom2.so*
+%{_com_libdir}/libcnnet2.so*
+%{_com_libdir}/libcnbpnet20.so*
+%{_com_libdir}/libcnbpnet30.so*
 %attr(644, lp, lp) %{_libdir}%{CNLIBS}/cnnet.ini
 %{_prefix}/share/locale/*/LC_MESSAGES/cnijlgmon3.mo
 %{_prefix}/share/cnijlgmon3/*
 %{_prefix}/share/cmdtocanonij2/*
+%{_prefix}/share/cmdtocanonij3/*
 
 %doc doc/LICENSE-cnijfilter-%{VERSION}JP.txt
 %doc doc/LICENSE-cnijfilter-%{VERSION}EN.txt
 %doc doc/LICENSE-cnijfilter-%{VERSION}SC.txt
 %doc doc/LICENSE-cnijfilter-%{VERSION}FR.txt
+%doc doc/Readme_EN.txt
+%doc doc/Readme_JP.txt
+%doc doc/Readme_SC.txt
+%doc doc/Readme_FR.txt
 
 %doc lproptions/lproptions-*.txt
 

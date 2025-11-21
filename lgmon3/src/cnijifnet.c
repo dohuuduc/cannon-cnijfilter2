@@ -1,6 +1,6 @@
 /*
  *  Canon Inkjet Printer Driver for Linux
- *  Copyright CANON INC. 2001-2015
+ *  Copyright CANON INC. 2001-2024
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -246,7 +246,7 @@ int CNIF_Network_Discover(int installer)
 	// find printers
 	nic = (CNNLNICINFO *)malloc(sizeof(CNNLNICINFO)*max);
 	memset(nic, 0x00, sizeof(CNNLNICINFO)*max);
-	
+
 	if (CNNL_SearchPrintersEx(hmdl, nic, CACHE_PATH, max, &found, CNNET_SEARCH_BROADCAST, 1, (installer==1)? 5000:3000) == CNNL_RET_SUCCESS){
 		
 		for (j=0; j<found; j++){

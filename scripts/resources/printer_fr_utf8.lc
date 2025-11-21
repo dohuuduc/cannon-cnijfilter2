@@ -73,7 +73,7 @@ L_INST_COM_01_01="Commande exécutée = %s\n"
 L_INST_COM_01_02="Une erreur s'est produite. Impossible d'identifier le gestionnaire de paquets.\n"
 L_INST_COM_01_03="Une erreur s'est produite. Impossible de trouver un paquet requis à l'emplacement approprié.\n"
 L_INST_COM_01_04="L'installation est terminée.\n"
-L_INST_COM_01_05="Une erreur s'est produite. Impossible d'identifier votre environnement comme 32 bits ou 64 bits.\nEssayez à nouveau d'installer à l'aide de la commande suivante :\n"
+L_INST_COM_01_05="Une erreur s'est produite. Impossible d'identifier votre environnement.\nEssayez à nouveau d'installer à l'aide de la commande suivante :\n"
 L_INST_COM_01_06="Une erreur s'est produite. Votre environnement ne correspond pas à l'environnement spécifié.\nEssayez à nouveau d'installer à l'aide de la commande suivante :\n"
 
 L_INST_COM_02_01="Syntaxe : %s\n"
